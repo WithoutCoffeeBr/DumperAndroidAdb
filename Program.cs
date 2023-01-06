@@ -87,11 +87,11 @@ namespace Program
         {
             string newline = string.Empty;
             List<PSInfo> ps = new List<PSInfo>();
-            using (var StreamConsole = RunShellAdb("ps -A").StandardOutput)
+            using (var StreamConsole = RunShellAdbSU("ps -A").StandardOutput)
             {
                 while ((newline = StreamConsole.ReadLine()) != null)
                 {
-                    if (!newline.Contains("USER"))
+                    if (!newline.Contains("USER") & newline != string.Empty)
                     {
                         var split = Regex.Split(newline, @"\s+");
                         ps.Add(new PSInfo()
@@ -162,7 +162,7 @@ namespace Program
         public static void Main()
         {
             var plist = GetProcessAndroid();
-            var psInfo = plist.Find(x => x.NAME.Contains("com.dts.freefireth"));
+            var psInfo = plist.Find(x => x.NAME.Contains("com.dts.freefiremax"));
             Console.WriteLine($"PROCESS: {psInfo.NAME} PID:{psInfo.PID}");
             MapsInfo maps = parseMaps(psInfo.PID);
             MapsInfo metadatainfo = maps.FindAllMaps(x => x.Path.Contains("/dev/zero (deleted)"));
