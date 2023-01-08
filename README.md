@@ -3,7 +3,7 @@ This project was inspired by NoxDumper, so any resemblance is no mere coincidenc
 
 Errors may occur depending on the emulator you are using. If you want to avoid problems, use LDPlayer 9,
 
-Well, I'm not very good with github, but I'll leave where I have the references
+Well, I'm not very good with Github, but I'll leave where I got the references
 
 https://github.com/zeroKilo/NoxDumper
 
