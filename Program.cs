@@ -10,11 +10,6 @@ namespace Program
     {
         public string USER { get; set; }
         public int PID { get; set; }
-        public int PPID { get; set; }
-        public int VSZ { get; set; }
-        public int RSS { get; set; }
-        public int WCHAN { get; set; }
-        public int ADDR { get; set; }
         public string NAME { get; set; }
     }
 
@@ -31,7 +26,7 @@ namespace Program
         {
             get
             {
-                return this[this.Count - 1].EndAddress - this[0].StartAddress;
+                    return this.EndAddress - this.StartAddress;
             }
         }
 
@@ -54,7 +49,7 @@ namespace Program
         {
             Process RunShell = new Process()
             {
-                StartInfo = new ProcessStartInfo("adb", $"shell \u0022{cmd}\u0022")
+                StartInfo = new ProcessStartInfo("HD-adb", $"shell -n \u0022{cmd}\u0022")
                 {
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
@@ -66,16 +61,17 @@ namespace Program
 
         public static void RunShellPull(string cmd)
         {
+            string? newline = string.Empty;
             Process RunShell = new Process()
             {
-                StartInfo = new ProcessStartInfo("adb", $"pull {cmd}")
+                StartInfo = new ProcessStartInfo("HD-adb", $"pull {cmd}")
                 {
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                 }
             };
             RunShell.Start();
-            RunShell.StandardOutput.ReadLine();
+            while ((newline= RunShell.StandardOutput.ReadLine()) != null);
         }
 
 
@@ -85,23 +81,21 @@ namespace Program
         }
         public static List<PSInfo> GetProcessAndroid()
         {
-            string newline = string.Empty;
+            string? newline = string.Empty;
             List<PSInfo> ps = new List<PSInfo>();
-            using (var StreamConsole = RunShellAdbSU("ps -A").StandardOutput)
+            using (var StreamConsole = RunShellAdbSU("ps").StandardOutput)
             {
+
+
                 while ((newline = StreamConsole.ReadLine()) != null)
                 {
-                    if (!newline.Contains("USER") & newline != string.Empty)
+                    if (!newline.Contains("USER") )
                     {
                         var split = Regex.Split(newline, @"\s+");
                         ps.Add(new PSInfo()
                         {
                             USER = split[0],
                             PID = int.Parse(split[1]),
-                            PPID = int.Parse(split[2]),
-                            VSZ = int.Parse(split[3]),
-                            WCHAN = int.Parse(split[4]),
-                            ADDR = int.Parse(split[5]),
                             NAME = split[8],
                         });
                     }
@@ -121,14 +115,13 @@ namespace Program
         }
         public static MapsInfo parseMaps(int pid)
         {
-            string newline = string.Empty;
+            string? newline = string.Empty;
             MapsInfo maps = new MapsInfo();
             var Shell = RunShellAdb($"su -c \u0022\u0022cat /proc/{pid}/maps\u0022\u0022");
             using (var StreamConsole = Shell.StandardOutput)
             {
                 while ((newline = StreamConsole.ReadLine()) != null)
                 {
-                
                     var split = Regex.Split(newline, @"\s+");
                     var split_addres = split[0].Split("-");
                     if(newline != string.Empty)
@@ -146,12 +139,14 @@ namespace Program
             return maps;
         }
 
-        public static byte[] GetMemory(int pid, UInt64 size, UInt64 start)
+        public static byte[] GetMemory(int pid, MapsInfo mapsInfo)
         {
-            RunShellAdbSU($"dd if=/proc/{pid}/mem of=/data/local/tmp/dump.bin bs=1024 count={size / 1024} skip={start / 1024}").StandardOutput.ReadLine();
+            Console.WriteLine($"Region:{mapsInfo[0].Path}");
+            RunShellAdbSU($"dd if=/proc/{pid}/mem of=/data/local/tmp/dump.bin bs=1024 count={mapsInfo.Size / 1024} skip={mapsInfo.StartAddress / 1024}").StandardOutput.ReadLine();
             RunShellAdbSU("chmod 777 /data/local/tmp/dump.bin").StandardOutput.ReadLine();
             var path = Path.GetTempFileName();
             RunShellPull($"/data/local/tmp/dump.bin {path}");
+            RunShellAdbSU("rm /data/local/tmp/dump.bin");
             return File.ReadAllBytes(path);
         }
 
@@ -167,16 +162,15 @@ namespace Program
             MapsInfo maps = parseMaps(psInfo.PID);
             MapsInfo metadatainfo = maps.FindAllMaps(x => x.Path.Contains("/dev/zero (deleted)"));
             MapsInfo binaryinfo = maps.FindAllMaps(x => x.Path.Contains("libil2cpp.so"));
-            byte[] metadata = GetMemory(psInfo.PID, metadatainfo.EndAddress - metadatainfo.StartAddress, metadatainfo.StartAddress);
-            byte[] binary = GetMemory(psInfo.PID, binaryinfo.EndAddress - binaryinfo.StartAddress, binaryinfo.StartAddress);
-
+            var metadata = GetMemory(psInfo.PID, metadatainfo);
+            var binary = GetMemory(psInfo.PID, binaryinfo);
             metadata[0] = 0xAF;
             metadata[1] = 0x1B;
             metadata[2] = 0xB1;
             metadata[3] = 0xFA;
             
-            File.WriteAllBytes("metadata.dat",metadata);
-            File.WriteAllBytes($"{binaryinfo.StartAddress.ToString("X2")}-binary.so",binary);
+            File.WriteAllBytes(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"global-metadata.dat"),metadata);
+            File.WriteAllBytes(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,$"{binaryinfo.StartAddress.ToString("X2")}-binary.so"),binary);
             //Console.WriteLine($"StartAddress: {info.StartAddress.ToString("X2")}\nPath:{info.Path}\nSize:{maps.Size}");
         }
     }
