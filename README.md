@@ -3,7 +3,7 @@ This project was inspired by NoxDumper, so any resemblance is no mere coincidenc
 
 Errors can occur, depending on the emulator you are using. If you want to avoid problems, use Bluestacks.
 
-Well, I'm not very good with Github, but I'll leave where I got the references
+I'm not very good with Github, but I'll leave where I got the references
 
 https://github.com/zeroKilo/NoxDumper
 
